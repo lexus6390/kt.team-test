@@ -8,16 +8,21 @@ use Tobscure\JsonApi\Resource;
 
 /**
  * Class TaskSerializer
+ * Сериализатор сущности Task
  * @package App\Services
  */
 class TaskSerializer extends AbstractSerializer
 {
     /**
+     * Название сущности в json
+     *
      * @var string
      */
     protected $type = 'tasks';
 
     /**
+     * Получение атрибутов
+     *
      * @param mixed $task
      * @param array|null $fields
      * @return array
@@ -35,6 +40,8 @@ class TaskSerializer extends AbstractSerializer
     }
 
     /**
+     * Подключение связи с сущностью User
+     *
      * @param $task
      * @return Relationship
      */
@@ -45,6 +52,8 @@ class TaskSerializer extends AbstractSerializer
     }
 
     /**
+     * Подключение связи с сущностью Status
+     *
      * @param $task
      * @return Relationship
      */

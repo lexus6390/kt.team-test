@@ -9,16 +9,21 @@ use Tobscure\JsonApi\Resource;
 
 /**
  * Class UserSerializer
+ * Сериализатор сущности User
  * @package App\Services
  */
 class UserSerializer extends AbstractSerializer
 {
     /**
+     * Название сущности в json
+     *
      * @var string
      */
     protected $type = 'users';
 
     /**
+     * Получение атрибутов
+     *
      * @param mixed $user
      * @param array|null $fields
      * @return array
@@ -37,6 +42,8 @@ class UserSerializer extends AbstractSerializer
     }
 
     /**
+     * Подключение связи с сущностью Task
+     *
      * @param $user
      * @return Relationship
      */
@@ -47,6 +54,8 @@ class UserSerializer extends AbstractSerializer
     }
 
     /**
+     * Подключение связи с сущностью Role
+     *
      * @param $user
      * @return Relationship
      */

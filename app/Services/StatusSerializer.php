@@ -6,16 +6,21 @@ use Tobscure\JsonApi\AbstractSerializer;
 
 /**
  * Class StatusSerializer
+ * Сериализатор сущности Status
  * @package App\Services
  */
 class StatusSerializer extends AbstractSerializer
 {
     /**
+     * Название сущности в json
+     *
      * @var string
      */
     protected $type = 'statuses';
 
     /**
+     * Получение атрибутов
+     *
      * @param mixed $status
      * @param array|null $fields
      * @return array

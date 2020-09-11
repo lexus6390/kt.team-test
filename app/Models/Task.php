@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -24,12 +27,14 @@ class Task extends Model
     use HasFactory;
 
     /**
+     * Имя таблицы в БД
+     *
      * @var string
      */
     protected $table = 'task';
 
     /**
-     * The attributes that are mass assignable.
+     * Атрибуты, доступные для массового заполнения
      *
      * @var array
      */
@@ -38,22 +43,8 @@ class Task extends Model
     ];
 
     /**
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
-     */
-    public function users()
-    {
-        return $this->hasOne(User::class, 'id', 'user_id');
-    }
-
-    /**
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
-     */
-    public function statuses()
-    {
-        return $this->hasOne(Status::class, 'id', 'status_id');
-    }
-
-    /**
+     * Валидация входящих данных при создании новой задачи
+     *
      * @param array $data
      * @return \Illuminate\Contracts\Validation\Validator
      */
@@ -65,16 +56,18 @@ class Task extends Model
             'description' => ['required', 'string'],
             'estimate'    => ['required', 'integer']
         ], [
-            'required'     => 'Поле :attribute должно быть заполнено',
-            'max'          => 'Максимальная длина поля :attribute - 255 символов',
-            'string'       => 'Значение поля :attribute должно быть строкой',
-            'integer'      => 'Значение поля :attribute должно быть целым числом',
+            'required' => 'Поле :attribute должно быть заполнено',
+            'max'      => 'Максимальная длина поля :attribute - 255 символов',
+            'string'   => 'Значение поля :attribute должно быть строкой',
+            'integer'  => 'Значение поля :attribute должно быть целым числом',
         ]);
     }
 
     /**
+     * Создание новой задачи
+     *
      * @param $data
-     * @return Task |\Illuminate\Http\JsonResponse
+     * @return Task |JsonResponse
      */
     public static function createTask($data)
     {
@@ -88,22 +81,15 @@ class Task extends Model
         ]);
 
         if(!$task->save()) {
-            return response()
-                ->json(['errors' => [
-                    [
-                        'status' => '500',
-                        'source' => ['pointer' => 'tasks'],
-                        'title'  => 'Internal Server Error',
-                        'detail' => 'Ошибка при сохранении сущности Task'
-                    ]
-                ]])
-                ->setStatusCode(500);
+            return Controller::internalServerError('tasks', 'Task');
         }
 
         return $task;
     }
 
     /**
+     * Валидация входящих данных при редактировании задачи
+     *
      * @param array $data
      * @return \Illuminate\Contracts\Validation\Validator
      */
@@ -117,16 +103,18 @@ class Task extends Model
             'spent'       => ['integer'],
             'status_id'   => ['integer']
         ], [
-            'max'          => 'Максимальная длина поля :attribute - 255 символов',
-            'string'       => 'Значение поля :attribute должно быть строкой',
-            'integer'      => 'Значение поля :attribute должно быть целым числом',
+            'max'     => 'Максимальная длина поля :attribute - 255 символов',
+            'string'  => 'Значение поля :attribute должно быть строкой',
+            'integer' => 'Значение поля :attribute должно быть целым числом',
         ]);
     }
 
     /**
+     * Редактирование задачи по ID
+     *
      * @param $data
      * @param int $id
-     * @return Task|\Illuminate\Http\JsonResponse|object
+     * @return Task|JsonResponse|object
      */
     public static function updateTask($data, int $id)
     {
@@ -134,16 +122,7 @@ class Task extends Model
         $task = self::where(['id' => $id])->first();
 
         if(is_null($task)) {
-            return response()
-                ->json(['errors' => [
-                    [
-                        'status' => '404',
-                        'source' => ['pointer' => 'tasks'],
-                        'title'  => 'Not found',
-                        'detail' => 'Запись сущности Task с переданным ID не найдена'
-                    ]
-                ]])
-                ->setStatusCode(404);
+            return Controller::notFoundException('tasks', 'Task', $id);
         }
 
         $task->fill([
@@ -156,18 +135,29 @@ class Task extends Model
         ]);
 
         if(!$task->save()) {
-            return response()
-                ->json(['errors' => [
-                    [
-                        'status' => '500',
-                        'source' => ['pointer' => 'tasks'],
-                        'title'  => 'Internal Server Error',
-                        'detail' => 'Ошибка при сохранении сущности Task'
-                    ]
-                ]])
-                ->setStatusCode(500);
+            return Controller::internalServerError('tasks', 'Task');
         }
 
         return $task;
+    }
+
+    /**
+     * Связь один к одному с таблицей user (task.user_id=user.id)
+     *
+     * @return HasOne
+     */
+    public function users()
+    {
+        return $this->hasOne(User::class, 'id', 'user_id');
+    }
+
+    /**
+     * Связь один к одному с таблицей status (task.status_id=status.id)
+     *
+     * @return HasOne
+     */
+    public function statuses()
+    {
+        return $this->hasOne(Status::class, 'id', 'status_id');
     }
 }

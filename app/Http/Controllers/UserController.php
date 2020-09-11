@@ -7,9 +7,11 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Route;
 use Tobscure\JsonApi\Document;
 use App\Services\UserSerializer;
+use Tobscure\JsonApi\Exception\InvalidParameterException;
 use Tobscure\JsonApi\Parameters;
 use Tobscure\JsonApi\Resource;
 
@@ -41,9 +43,9 @@ class UserController extends Controller
     /**
      * Получение пользователя по ID
      *
-     * @param $id int
-     * @return \Illuminate\Http\JsonResponse
-     * @throws \Tobscure\JsonApi\Exception\InvalidParameterException
+     * @param $id int Идентификатор пользователя
+     * @return JsonResponse
+     * @throws InvalidParameterException
      */
     public function getUser(int $id) : JsonResponse
     {
@@ -55,22 +57,14 @@ class UserController extends Controller
         $user = User::where('id', $id)->first();
 
         if(is_null($user)) {
-            return response()->json(['errors' => [
-                [
-                    'status' => '404',
-                    'source' => ['pointer' => 'users'],
-                    'title'  => 'Not found',
-                    'detail' => 'User with ID '.$id.' not found'
-                ]
-            ]])->setStatusCode(404);
+            return Controller::notFoundException('users', 'User', $id);
         }
 
         $resource = (new Resource($user, new UserSerializer()))->fields($fields);
-
         $resource = UserHelper::addRelationshipResource($resource, $fields, $include);
 
         $document = new Document($resource);
-        $document->addLink('self', 'https://example.com/api/users/'.$id);
+        $document->addLink('self', Config::get('app.url').'/api/users/'.$id);
 
         return response()->json($document);
     }
@@ -78,7 +72,7 @@ class UserController extends Controller
     /**
      * Создание нового пользователя
      *
-     * @param Request $request
+     * @param Request $request Объект запроса
      * @return JsonResponse|object
      */
     public function addUser(Request $request)
@@ -86,18 +80,7 @@ class UserController extends Controller
         $errors = User::createValidator($request->all())->errors()->getMessages();
 
         if(!empty($errors)) {
-            $arrayOfErrors = [];
-            foreach ($errors as $field => $error) {
-                $arrayOfErrors[] = [
-                    'status' => '400',
-                    'source' => ['parameter' => $field],
-                    'title'  => 'Bad request',
-                    'detail' => $error[0]
-                ];
-            }
-            return response()
-                ->json(['errors' => $arrayOfErrors])
-                ->setStatusCode(400);
+            return Controller::badRequestException($errors);
         }
 
         $newUser = User::createUser($request);
@@ -105,30 +88,26 @@ class UserController extends Controller
         $resource = (new Resource($newUser, new UserSerializer()));
 
         $document = new Document($resource);
-        $document->addLink('self', 'https://example.com/api/users/'.$newUser->id);
+        $document->addLink('self', Config::get('app.url').'/api/users/'.$newUser->id);
 
         return response()->json($document)
             ->setStatusCode(201)
-            ->header('Location', 'http://ktteam-domain/api/users/'.$newUser->id);
+            ->header('Location', Config::get('app.url').'/api/users/'.$newUser->id);
     }
 
+    /**
+     * Редактирование пользователя по ID
+     *
+     * @param Request $request Объект запроса
+     * @param int $id Идентификатор пользователя
+     * @return JsonResponse|object
+     */
     public function updateUser(Request $request, int $id)
     {
         $errors = User::updateValidator($request->all())->errors()->getMessages();
 
         if(!empty($errors)) {
-            $arrayOfErrors = [];
-            foreach ($errors as $field => $error) {
-                $arrayOfErrors[] = [
-                    'status' => '400',
-                    'source' => ['parameter' => $field],
-                    'title'  => 'Bad request',
-                    'detail' => $error[0]
-                ];
-            }
-            return response()
-                ->json(['errors' => $arrayOfErrors])
-                ->setStatusCode(400);
+            return Controller::badRequestException($errors);
         }
 
         $updateUser = User::updateUser($request, $id);
@@ -136,32 +115,25 @@ class UserController extends Controller
         $resource = (new Resource($updateUser, new UserSerializer()));
 
         $document = new Document($resource);
-        $document->addLink('self', 'https://example.com/api/users/'.$updateUser->id);
+        $document->addLink('self', Config::get('app.url').'/api/users/'.$updateUser->id);
 
         return response()->json($document)
             ->setStatusCode(201)
-            ->header('Location', 'http://ktteam-domain/api/users/'.$updateUser->id);
+            ->header('Location', Config::get('app.url').'/api/users/'.$updateUser->id);
     }
 
     /**
      * Удаление пользователя по ID
      *
-     * @param $id int
-     * @return \Illuminate\Http\JsonResponse|Response|object
+     * @param $id int Идентификатор пользователя
+     * @return JsonResponse|Response|object
      */
     public function deleteUser(int $id) : object
     {
         $deleteUser = User::destroy($id);
 
         if($deleteUser == 0) {
-            return response()->json(['errors' => [
-                [
-                    'status' => '404',
-                    'source' => ['pointer' => 'users'],
-                    'title'  => 'Not found',
-                    'detail' => 'T'
-                ]
-            ]])->setStatusCode(404);
+            return Controller::notFoundException('users', 'User', $id);
         }
 
         return (new Response())->setStatusCode(204);

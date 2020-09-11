@@ -24,6 +24,8 @@ class Handler extends ExceptionHandler
     ];
 
     /**
+     * Обработка ошибок приложения
+     *
      * @param \Illuminate\Http\Request $request
      * @param Throwable $exception
      * @return \Illuminate\Http\JsonResponse|Response|\Symfony\Component\HttpFoundation\Response

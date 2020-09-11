@@ -8,9 +8,11 @@ use App\Services\TaskSerializer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Route;
 use Tobscure\JsonApi\Collection;
 use Tobscure\JsonApi\Document;
+use Tobscure\JsonApi\Exception\InvalidParameterException;
 use Tobscure\JsonApi\Parameters;
 use Tobscure\JsonApi\Resource;
 
@@ -43,8 +45,10 @@ class TaskController extends Controller
     }
 
     /**
+     * Получение списка задач с фильтрацией, сортировкой и пагинацией
+     *
      * @return JsonResponse
-     * @throws \Tobscure\JsonApi\Exception\InvalidParameterException
+     * @throws InvalidParameterException
      */
     public function getTaskList()
     {
@@ -82,24 +86,23 @@ class TaskController extends Controller
         if(!empty($offset)) {
             $tasks->where('id', '>', $offset);
         }
-
         $tasks = $tasks->get();
 
-        $collection = (new Collection($tasks, new TaskSerializer()))
-            ->fields($fields);
-
+        $collection = (new Collection($tasks, new TaskSerializer()))->fields($fields);
         $collection = TaskHelper::addRelationshipCollection($collection, $fields, $include);
 
         $document = new Document($collection);
-        $document->addLink('self', 'http://example.com/api/task/');
+        $document->addLink('self', Config::get('app.url').'/api/task/');
 
         if(isset($_GET['page'])) {
             $document->addPaginationLinks(
-                'http://example.com/api/tasks',
-                ['page' => [
-                    'limit'  => $limit,
-                    'offset' => $offset
-                ]],
+                Config::get('app.url').'/api/tasks',
+                [
+                    'page' => [
+                        'limit'  => $limit,
+                        'offset' => $offset
+                    ]
+                ],
                 $offset,
                 $limit,
                 $countTask
@@ -113,8 +116,8 @@ class TaskController extends Controller
      * Получение одной задачи по ID
      *
      * @param $id int
-     * @return \Illuminate\Http\JsonResponse
-     * @throws \Tobscure\JsonApi\Exception\InvalidParameterException
+     * @return JsonResponse
+     * @throws InvalidParameterException
      */
     public function getTask(int $id) : JsonResponse
     {
@@ -126,22 +129,14 @@ class TaskController extends Controller
         $task = Task::where('id', $id)->first();
 
         if(is_null($task)) {
-            return response()->json(['errors' => [
-                [
-                    'status' => '404',
-                    'source' => ['pointer' => 'tasks'],
-                    'title'  => 'Not found',
-                    'detail' => 'Task with ID '.$id.' not found'
-                ]
-            ]])->setStatusCode(404);
+            return Controller::notFoundException('tasks', 'Task', $id);
         }
 
         $resource = (new Resource($task, new TaskSerializer()))->fields($fields);
-
         $resource = TaskHelper::addRelationshipResource($resource, $fields, $include);
 
         $document = new Document($resource);
-        $document->addLink('self', 'https://example.com/api/tasks/'.$id);
+        $document->addLink('self', Config::get('app.url').'/api/tasks/'.$id);
 
         return response()->json($document);
     }
@@ -149,26 +144,15 @@ class TaskController extends Controller
     /**
      * Создание новой задачи
      *
-     * @param Request $request
+     * @param Request $request Объект запроса
      * @return JsonResponse|object
      */
-    public function addTask(Request$request)
+    public function addTask(Request $request) : JsonResponse
     {
         $errors = Task::createValidator($request->all())->errors()->getMessages();
 
         if(!empty($errors)) {
-            $arrayOfErrors = [];
-            foreach ($errors as $field => $error) {
-                $arrayOfErrors[] = [
-                    'status' => '400',
-                    'source' => ['parameter' => $field],
-                    'title'  => 'Bad request',
-                    'detail' => $error[0]
-                ];
-            }
-            return response()
-                ->json(['errors' => $arrayOfErrors])
-                ->setStatusCode(400);
+            return Controller::badRequestException($errors);
         }
 
         $newTask = Task::createTask($request);
@@ -176,30 +160,26 @@ class TaskController extends Controller
         $resource = (new Resource($newTask, new TaskSerializer()));
 
         $document = new Document($resource);
-        $document->addLink('self', 'https://example.com/api/tasks/'.$newTask->id);
+        $document->addLink('self', Config::get('app.url').'/api/tasks/'.$newTask->id);
 
         return response()->json($document)
             ->setStatusCode(201)
-            ->header('Location', 'http://ktteam-domain/api/tasks/'.$newTask->id);
+            ->header('Location', Config::get('app.url').'/api/tasks/'.$newTask->id);
     }
 
-    public function updateTask(Request $request, int $id)
+    /**
+     * Редактирование задачи по ID
+     *
+     * @param Request $request Объект запроса
+     * @param int $id Идентификатор задачи
+     * @return JsonResponse|object
+     */
+    public function updateTask(Request $request, int $id) : JsonResponse
     {
         $errors = Task::updateValidator($request->all())->errors()->getMessages();
 
         if(!empty($errors)) {
-            $arrayOfErrors = [];
-            foreach ($errors as $field => $error) {
-                $arrayOfErrors[] = [
-                    'status' => '400',
-                    'source' => ['parameter' => $field],
-                    'title'  => 'Bad request',
-                    'detail' => $error[0]
-                ];
-            }
-            return response()
-                ->json(['errors' => $arrayOfErrors])
-                ->setStatusCode(400);
+            return Controller::badRequestException($errors);
         }
 
         $updateTask = Task::updateTask($request, $id);
@@ -207,31 +187,24 @@ class TaskController extends Controller
         $resource = (new Resource($updateTask, new TaskSerializer()));
 
         $document = new Document($resource);
-        $document->addLink('self', 'https://example.com/api/tasks/'.$updateTask->id);
+        $document->addLink('self', Config::get('app.url').'/api/tasks/'.$updateTask->id);
 
         return response()->json($document)
-            ->header('Location', 'http://ktteam-domain/api/tasks/'.$updateTask->id);
+            ->header('Location', Config::get('app.url').'/api/tasks/'.$updateTask->id);
     }
 
     /**
      * Удаление задачи по ID
      *
-     * @param $id int
-     * @return \Illuminate\Http\JsonResponse|Response|object
+     * @param $id int Идентификатор задачи
+     * @return JsonResponse|Response|object
      */
     public function deleteTask(int $id) : object
     {
         $deleteTask = Task::destroy($id);
 
         if($deleteTask == 0) {
-            return response()->json(['errors' => [
-                [
-                    'status' => '404',
-                    'source' => ['pointer' => 'tasks'],
-                    'title'  => 'Not found',
-                    'detail' => 'Task with ID '.$id.' not found'
-                ]
-            ]])->setStatusCode(404);
+            return Controller::notFoundException('tasks', 'Task', $id);
         }
 
         return (new Response())->setStatusCode(204);
